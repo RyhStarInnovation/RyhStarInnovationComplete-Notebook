@@ -1,0 +1,278 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedDeveloper() {
+      return isVerifiedUser() && request.auth.token.email == 'ryhstarr@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedDeveloper() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Multilingual Entry & Map Validators (Synchronized with firebase-blueprint.json)
+    function isValidLocalizedUpdateText(entry) {
+      return entry is map
+        && entry.keys().hasAll(['title', 'summary'])
+        && entry.keys().hasOnly(['title', 'summary'])
+        && entry.title is string && entry.title.size() >= 3 && entry.title.size() <= 140
+        && entry.summary is string && entry.summary.size() >= 10 && entry.summary.size() <= 3000;
+    }
+
+    function isValidUpdateTranslations(trans) {
+      return trans is map
+        && trans.keys().hasOnly(['id', 'en', 'es', 'fr', 'ja', 'ar', 'ru', 'ko'])
+        && (!('id' in trans) || isValidLocalizedUpdateText(trans.id))
+        && (!('en' in trans) || isValidLocalizedUpdateText(trans.en))
+        && (!('es' in trans) || isValidLocalizedUpdateText(trans.es))
+        && (!('fr' in trans) || isValidLocalizedUpdateText(trans.fr))
+        && (!('ja' in trans) || isValidLocalizedUpdateText(trans.ja))
+        && (!('ar' in trans) || isValidLocalizedUpdateText(trans.ar))
+        && (!('ru' in trans) || isValidLocalizedUpdateText(trans.ru))
+        && (!('ko' in trans) || isValidLocalizedUpdateText(trans.ko));
+    }
+
+    // Media Attachment Validators (Synchronized with firebase-blueprint.json)
+    function isValidMediaAttachment(item) {
+      return item is map
+        && item.keys().hasAll(['id', 'kind', 'source', 'mimeType', 'name', 'sizeBytes', 'chunkCount', 'externalUrl'])
+        && item.keys().hasOnly(['id', 'kind', 'source', 'mimeType', 'name', 'sizeBytes', 'chunkCount', 'externalUrl'])
+        && isValidId(item.id) && item.id.size() >= 3 && item.id.size() <= 80
+        && item.kind is string && item.kind in ['image', 'video']
+        && item.source is string && item.source in ['firestore', 'url']
+        && item.mimeType is string && item.mimeType.size() >= 3 && item.mimeType.size() <= 64
+        && item.name is string && item.name.size() >= 1 && item.name.size() <= 120
+        && item.sizeBytes is int && item.sizeBytes >= 0 && item.sizeBytes <= 15728640
+        && item.chunkCount is int && item.chunkCount >= 0 && item.chunkCount <= 50
+        && item.externalUrl is string && item.externalUrl.size() <= 500;
+    }
+
+    function isValidMediaList(mediaList) {
+      return mediaList is list
+        && mediaList.size() <= 4
+        && (mediaList.size() < 1 || isValidMediaAttachment(mediaList[0]))
+        && (mediaList.size() < 2 || isValidMediaAttachment(mediaList[1]))
+        && (mediaList.size() < 3 || isValidMediaAttachment(mediaList[2]))
+        && (mediaList.size() < 4 || isValidMediaAttachment(mediaList[3]));
+    }
+
+    // Entity Blueprint Validators (Synchronized with firebase-blueprint.json)
+    function isValidAppUpdate(data) {
+      return data.keys().hasAll([
+          'title',
+          'version',
+          'category',
+          'summary',
+          'playStoreUrl',
+          'pinned',
+          'published',
+          'authorUid',
+          'authorName',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'title',
+          'version',
+          'category',
+          'summary',
+          'defaultLang',
+          'translations',
+          'playStoreUrl',
+          'media',
+          'pinned',
+          'published',
+          'authorUid',
+          'authorName',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+        && data.version is string && data.version.size() >= 1 && data.version.size() <= 32 && data.version.matches('^[a-zA-Z0-9.+_()\\- ]+$')
+        && data.category is string && data.category.size() >= 4 && data.category.size() <= 20 && data.category in ['release', 'feature', 'security', 'announcement']
+        && data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 3000
+        && (!('defaultLang' in data) || (
+          data.defaultLang is string
+          && data.defaultLang.size() == 2
+          && data.defaultLang in ['id', 'en', 'es', 'fr', 'ja', 'ar', 'ru', 'ko']
+        ))
+        && (!('translations' in data) || isValidUpdateTranslations(data.translations))
+        && data.playStoreUrl is string && data.playStoreUrl.size() <= 300
+        && (!('media' in data) || isValidMediaList(data.media))
+        && data.pinned is bool
+        && data.published is bool
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128 && data.authorUid == request.auth.uid
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRole(data) {
+      return data.keys().hasAll(['grantedByUid', 'label', 'createdAt'])
+        && data.keys().hasOnly(['grantedByUid', 'label', 'createdAt'])
+        && data.grantedByUid is string && data.grantedByUid.size() >= 1 && data.grantedByUid.size() <= 128 && data.grantedByUid == request.auth.uid
+        && data.label is string && data.label.size() >= 2 && data.label.size() <= 60
+        && data.createdAt is timestamp;
+    }
+
+    // Collection 1: Official Application Updates & Changelogs
+    match /app_updates/{updateId} {
+      allow get: if isValidId(updateId) && (existing().published == true || isAdmin());
+      allow list: if existing().published == true || isBootstrappedDeveloper();
+
+      allow create: if isVerifiedUser()
+        && isValidId(updateId)
+        && isValidAppUpdate(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow update: if isValidAppUpdate(incoming()) && (
+        isVerifiedUser()
+        && isValidId(updateId)
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin()
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'version',
+            'category',
+            'summary',
+            'defaultLang',
+            'translations',
+            'playStoreUrl',
+            'media',
+            'pinned',
+            'published',
+            'authorName',
+            'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['pinned', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['published', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isVerifiedUser() && isValidId(updateId) && isAdmin();
+    }
+
+    // Collection 2: Trusted Administrator Registry (Zero PII)
+    match /admins/{adminId} {
+      allow get: if isVerifiedUser() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(adminId)
+        && isValidAdminRole(incoming())
+        && incoming().createdAt == request.time
+        && isAdmin();
+
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(adminId) && isAdmin();
+    }
+
+    function isValidChunkIndex(chunkId) {
+      return chunkId is string && chunkId.size() >= 1 && chunkId.size() <= 4 && chunkId.matches('^[0-9]+$');
+    }
+
+    function isValidUpdateMedia(data) {
+      return data.keys().hasAll(['updateId', 'kind', 'mimeType', 'name', 'sizeBytes', 'chunkCount', 'authorUid', 'createdAt'])
+        && data.keys().hasOnly(['updateId', 'kind', 'mimeType', 'name', 'sizeBytes', 'chunkCount', 'authorUid', 'createdAt'])
+        && isValidId(data.updateId)
+        && data.kind is string && data.kind in ['image', 'video']
+        && data.mimeType is string && data.mimeType.size() >= 3 && data.mimeType.size() <= 64
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.sizeBytes is int && data.sizeBytes >= 1 && data.sizeBytes <= 15728640
+        && data.chunkCount is int && data.chunkCount >= 1 && data.chunkCount <= 50
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128 && data.authorUid == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidUpdateMediaChunk(data, mediaId, chunkId) {
+      return data.keys().hasAll(['mediaId', 'updateId', 'index', 'data', 'authorUid', 'createdAt'])
+        && data.keys().hasOnly(['mediaId', 'updateId', 'index', 'data', 'authorUid', 'createdAt'])
+        && data.mediaId is string && data.mediaId == mediaId
+        && isValidId(data.updateId)
+        && data.index is int && data.index >= 0 && data.index < 50 && string(data.index) == chunkId
+        && data.data is string && data.data.size() >= 1 && data.data.size() <= 550000
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128 && data.authorUid == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    // Collection 3: Uploaded Release Media Assets & Binary Chunks
+    match /update_media/{mediaId} {
+      allow get: if isValidId(mediaId) && (
+        isAdmin() || (
+          resource != null &&
+          exists(/databases/$(database)/documents/app_updates/$(existing().updateId)) &&
+          get(/databases/$(database)/documents/app_updates/$(existing().updateId)).data.published == true
+        )
+      );
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(mediaId)
+        && mediaId.size() >= 3 && mediaId.size() <= 80
+        && isValidUpdateMedia(incoming())
+        && incoming().createdAt == request.time
+        && isAdmin();
+
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(mediaId) && isAdmin();
+
+      match /chunks/{chunkId} {
+        allow get: if isValidId(mediaId) && isValidChunkIndex(chunkId) && (
+          isAdmin() || (
+            resource != null &&
+            exists(/databases/$(database)/documents/update_media/$(mediaId)) &&
+            get(/databases/$(database)/documents/update_media/$(mediaId)).data.updateId == existing().updateId &&
+            exists(/databases/$(database)/documents/app_updates/$(existing().updateId)) &&
+            get(/databases/$(database)/documents/app_updates/$(existing().updateId)).data.published == true
+          )
+        );
+        allow list: if false;
+
+        allow create: if isVerifiedUser()
+          && isValidId(mediaId)
+          && isValidChunkIndex(chunkId)
+          && isValidUpdateMediaChunk(incoming(), mediaId, chunkId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/update_media/$(mediaId))
+          && get(/databases/$(database)/documents/update_media/$(mediaId)).data.authorUid == request.auth.uid
+          && isAdmin();
+
+        allow update: if false;
+        allow delete: if isVerifiedUser() && isValidId(mediaId) && isValidChunkIndex(chunkId) && isAdmin();
+      }
+    }
+  }
+}

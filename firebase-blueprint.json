@@ -1,0 +1,364 @@
+{
+  "entities": {
+    "LocalizedUpdateText": {
+      "title": "LocalizedUpdateText",
+      "description": "Localized headline and release summary for a single supported language.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Localized headline of the update or announcement.",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "summary": {
+          "type": "string",
+          "description": "Localized detailed release notes or announcement body.",
+          "minLength": 10,
+          "maxLength": 3000
+        }
+      },
+      "required": ["title", "summary"]
+    },
+    "UpdateTranslations": {
+      "title": "UpdateTranslations",
+      "description": "Optional dictionary of localized release notes keyed by supported language code.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "Bahasa Indonesia release notes."
+        },
+        "en": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "English release notes."
+        },
+        "es": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "Spanish release notes."
+        },
+        "fr": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "French release notes."
+        },
+        "ja": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "Japanese release notes."
+        },
+        "ar": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "Arabic release notes."
+        },
+        "ru": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "Russian release notes."
+        },
+        "ko": {
+          "type": "object",
+          "$ref": "LocalizedUpdateText",
+          "description": "Korean release notes."
+        }
+      }
+    },
+    "AppUpdate": {
+      "title": "AppUpdate",
+      "description": "Official release notes, feature updates, and announcements for Complete Notebook.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Primary fallback headline of the update or announcement.",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "version": {
+          "type": "string",
+          "description": "Application version tag such as 1.0.1+1 or v1.0.1+2.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9.+_()\\- ]+$"
+        },
+        "category": {
+          "type": "string",
+          "description": "Classification of the announcement.",
+          "enum": ["release", "feature", "security", "announcement"],
+          "minLength": 4,
+          "maxLength": 20
+        },
+        "summary": {
+          "type": "string",
+          "description": "Primary fallback release notes or announcement body.",
+          "minLength": 10,
+          "maxLength": 3000
+        },
+        "defaultLang": {
+          "type": "string",
+          "description": "Primary language code used as default fallback for this release.",
+          "enum": ["id", "en", "es", "fr", "ja", "ar", "ru", "ko"],
+          "minLength": 2,
+          "maxLength": 2
+        },
+        "translations": {
+          "type": "object",
+          "$ref": "UpdateTranslations",
+          "description": "Optional per-language map of localized titles and release notes."
+        },
+        "playStoreUrl": {
+          "type": "string",
+          "description": "Optional direct Google Play link for the release.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "media": {
+          "type": "array",
+          "$ref": "UpdateMediaAttachment",
+          "description": "Optional list (max 4) of attached photos or videos for this release update."
+        },
+        "pinned": {
+          "type": "boolean",
+          "description": "Whether this announcement is pinned at the top of the feed."
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Whether this announcement is publicly visible to global visitors."
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the developer who published the update.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Public display name of the publisher (e.g. RyhStar Innovation).",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the update was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the update was last modified."
+        }
+      },
+      "required": [
+        "title",
+        "version",
+        "category",
+        "summary",
+        "playStoreUrl",
+        "pinned",
+        "published",
+        "authorUid",
+        "authorName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRole": {
+      "title": "AdminRole",
+      "description": "Trusted administrator membership record keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "grantedByUid": {
+          "type": "string",
+          "description": "UID of the developer admin who granted access.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "description": "Role description without PII.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin access was recorded."
+        }
+      },
+      "required": ["grantedByUid", "label", "createdAt"]
+    },
+    "UpdateMediaAttachment": {
+      "title": "UpdateMediaAttachment",
+      "description": "Metadata pointer for an optional photo or video attached to a release update.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique media identifier matching ^[a-zA-Z0-9_-]+$.",
+          "minLength": 3,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Media type: image or video.",
+          "enum": ["image", "video"],
+          "minLength": 5,
+          "maxLength": 5
+        },
+        "source": {
+          "type": "string",
+          "description": "Storage origin: chunked Firestore asset or verified HTTPS external media URL.",
+          "enum": ["firestore", "url"],
+          "minLength": 3,
+          "maxLength": 9
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type such as image/webp or video/mp4.",
+          "minLength": 3,
+          "maxLength": 64
+        },
+        "name": {
+          "type": "string",
+          "description": "Original sanitized file name or media label.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "description": "File size in bytes (0 for external URL, up to 15728640 for uploaded files)."
+        },
+        "chunkCount": {
+          "type": "integer",
+          "description": "Number of stored binary chunks (0 for external URL, 1-50 for Firestore)."
+        },
+        "externalUrl": {
+          "type": "string",
+          "description": "Optional external HTTPS URL when source is url, otherwise empty string.",
+          "minLength": 0,
+          "maxLength": 500
+        }
+      },
+      "required": ["id", "kind", "source", "mimeType", "name", "sizeBytes", "chunkCount", "externalUrl"]
+    },
+    "UpdateMediaAsset": {
+      "title": "UpdateMediaAsset",
+      "description": "Parent metadata record for an uploaded photo or video linked to an AppUpdate document.",
+      "type": "object",
+      "properties": {
+        "updateId": {
+          "type": "string",
+          "description": "Parent AppUpdate document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Media type: image or video.",
+          "enum": ["image", "video"],
+          "minLength": 5,
+          "maxLength": 5
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "Validated MIME type of the uploaded media.",
+          "minLength": 3,
+          "maxLength": 64
+        },
+        "name": {
+          "type": "string",
+          "description": "Display filename of the uploaded media.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "description": "Total encoded payload size in bytes (1 to 15728640)."
+        },
+        "chunkCount": {
+          "type": "integer",
+          "description": "Total number of sequential chunks stored in subcollection (1 to 50)."
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the developer who uploaded the asset.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the media metadata was created."
+        }
+      },
+      "required": ["updateId", "kind", "mimeType", "name", "sizeBytes", "chunkCount", "authorUid", "createdAt"]
+    },
+    "UpdateMediaChunk": {
+      "title": "UpdateMediaChunk",
+      "description": "Ordered base64 binary chunk of an uploaded photo or video asset.",
+      "type": "object",
+      "properties": {
+        "mediaId": {
+          "type": "string",
+          "description": "Parent UpdateMediaAsset document ID.",
+          "minLength": 3,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "updateId": {
+          "type": "string",
+          "description": "Linked AppUpdate document ID for visibility gating.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "index": {
+          "type": "integer",
+          "description": "Zero-based sequential chunk index matching document ID."
+        },
+        "data": {
+          "type": "string",
+          "description": "Base64 slice of the media binary payload (1 to 550000 chars).",
+          "minLength": 1,
+          "maxLength": 550000
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the developer who uploaded the chunk.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the chunk was uploaded."
+        }
+      },
+      "required": ["mediaId", "updateId", "index", "data", "authorUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/app_updates/{updateId}": {
+      "schema": "AppUpdate",
+      "description": "Publicly readable (when published == true) official multilingual app changelogs and announcements managed exclusively by verified RyhStar Innovation admin."
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminRole",
+      "description": "Trusted admin registry keyed by UID with zero PII fields."
+    },
+    "/update_media/{mediaId}": {
+      "schema": "UpdateMediaAsset",
+      "description": "Metadata records for optional uploaded photos and videos attached to app_updates."
+    },
+    "/update_media/{mediaId}/chunks/{chunkId}": {
+      "schema": "UpdateMediaChunk",
+      "description": "Chunked media payloads for uploaded photos and videos, strictly gated by parent AppUpdate publication state."
+    }
+  }
+}
